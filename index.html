@@ -1,76 +1,142 @@
 <!DOCTYPE html>
-<html lang="pt-BR">
+<html lang="pt-br">
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>BlockCraft P2P - Fixed PC Version</title>
+<title>Blockcraft - Single / Multi</title>
 <style>
-  *{margin:0;padding:0;box-sizing:border-box}
-  body{overflow:hidden;background:#87CEEB;font-family:monospace;user-select:none}
-  canvas{display:block}
-  #crosshair{position:fixed;left:50%;top:50%;width:20px;height:20px;transform:translate(-50%,-50%);pointer-events:none;z-index:10}
-  #crosshair:before,#crosshair:after{content:'';position:absolute;background:white;box-shadow:0 0 3px black}
-  #crosshair:before{left:9px;top:0;width:2px;height:20px}
-  #crosshair:after{top:9px;left:0;width:20px;height:2px}
-  #hud{position:fixed;bottom:0;left:0;right:0;z-index:20;pointer-events:none}
-  #hotbar{display:flex;gap:4px;justify-content:center;padding:8px;background:linear-gradient(transparent,rgba(0,0,0,0.6))}
-  .slot{width:52px;height:52px;background:rgba(0,0,0,0.6);border:2px solid #555;display:flex;align-items:center;justify-content:center;color:white;font-size:10px;flex-direction:column;pointer-events:auto;cursor:pointer;border-radius:4px}
-  .slot.active{border-color:white;background:rgba(255,255,255,0.35);transform:scale(1.08)}
-  #top{position:fixed;top:0;left:0;right:0;display:flex;justify-content:space-between;padding:8px;z-index:30;pointer-events:none}
-  #top > div{pointer-events:auto}
-  .panel{background:rgba(0,0,0,0.75);color:white;padding:10px;border-radius:8px;font-size:12px;min-width:210px;backdrop-filter:blur(4px)}
-  button{background:#5aa04a;color:white;border:2px outset #7bc06e;padding:7px 14px;cursor:pointer;font-family:monospace;font-weight:bold;border-radius:4px}
-  button:hover{background:#6ab85a}
-  input{background:#222;color:white;border:1px solid #555;padding:6px;width:150px;border-radius:4px}
-  #menu{position:fixed;inset:0;background:linear-gradient(#1a2a1a,#000);display:flex;align-items:center;justify-content:center;z-index:100;flex-direction:column;color:white;text-align:center}
-  #menu h1{font-size:56px;text-shadow:5px 5px 0 #2a4a2a;letter-spacing:6px;margin-bottom:10px}
-  .row{display:flex;gap:8px;justify-content:center;flex-wrap:wrap;margin:6px 0}
-  #stats{font-size:11px;opacity:0.8;margin-top:8px}
+  *{margin:0;padding:0;box-sizing:border-box;font-family:Consolas, monospace}
+  body{background:#000;overflow:hidden;color:#fff}
+  #game{width:100vw;height:100vh;display:block}
+  #ui{position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none}
+  .panel{pointer-events:auto;background:rgba(0,0,0,0.8);border:2px solid #555;padding:12px;border-radius:8px}
+  #topBar{position:absolute;top:10px;left:10px;right:10px;display:flex;gap:10px;justify-content:space-between;flex-wrap:wrap}
+  #healthBar{width:200px;height:20px;background:#333;border:2px solid #fff;display:flex}
+  #healthFill{width:100%;height:100%;background:linear-gradient(90deg,#ff0000,#00ff00);transition:width 0.2s}
+  #hotbar{position:absolute;bottom:10px;left:50%;transform:translateX(-50%);display:flex;gap:4px}
+  .slot{width:48px;height:48px;background:rgba(0,0,0,0.6);border:2px solid #666;display:flex;align-items:center;justify-content:center;font-size:10px;cursor:pointer}
+  .slot.active{border-color:#fff;background:rgba(255,255,255,0.2);transform:scale(1.1)}
+  button{pointer-events:auto;padding:8px 12px;background:#4CAF50;color:#fff;border:none;border-radius:4px;cursor:pointer;font-weight:bold}
+  button:hover{background:#45a049}
+  button.red{background:#f44336} button.red:hover{background:#d32f2f}
+  button.blue{background:#2196F3}
+  #menu{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;min-width:320px}
+  input{pointer-events:auto;padding:8px;width:100%;margin:5px 0;background:#222;color:#fff;border:1px solid #555;border-radius:4px}
+  #crosshair{position:absolute;top:50%;left:50%;width:20px;height:20px;transform:translate(-50%,-50%);pointer-events:none}
+  #crosshair::before,#crosshair::after{content:'';position:absolute;background:#fff}
+  #crosshair::before{width:2px;height:20px;left:9px} #crosshair::after{width:20px;height:2px;top:9px}
+  #controlsInfo{position:absolute;bottom:80px;left:10px;font-size:11px;line-height:1.4;background:rgba(0,0,0,0.6);padding:8px;border-radius:4px}
 </style>
-<script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js"}}</script>
 <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+<script type="importmap">{"imports":{"three":"https://unpkg.com/three@0.160.0/build/three.module.js","three/addons/":"https://unpkg.com/three@0.160.0/examples/jsm/"}}</script>
 </head>
 <body>
+<canvas id="game"></canvas>
 <div id="crosshair"></div>
-<div id="top">
-  <div class="panel">
-    <div><b>🟢 P2P SERVER</b></div>
-    <div class="row" style="margin-top:8px"><button id="hostBtn">HOST WORLD</button><button id="copyBtn" style="display:none">COPY ID</button></div>
-    <div style="margin-top:6px"><div id="myId" style="word-break:break-all;color:#8f8;font-size:11px">Clique HOST pra gerar ID</div>
-      <div class="row" style="margin-top:8px"><input id="joinId" placeholder="Cola ID do Host"><button id="joinBtn">JOIN</button></div>
-      <div id="peers" style="margin-top:6px;color:#aaa">Players: 1 (você)</div></div>
-    <div id="stats">FPS: - | Blocks: - | Pronto</div>
+<div id="ui">
+  <div id="topBar">
+    <div class="panel" style="display:flex;gap:10px;align-items:center">
+      <div>VIDA:</div>
+      <div id="healthBar"><div id="healthFill"></div></div>
+      <span id="healthText">100</span>
+    </div>
+    <div class="panel" style="display:flex;gap:8px">
+      <button id="pvpBtn" class="red">PvP: ON</button>
+      <button id="invBtn" class="blue">INV [E]</button>
+      <button id="menuBtn">MENU [ESC]</button>
+    </div>
   </div>
-  <div class="panel" style="text-align:right;line-height:1.5">
-    <div>WASD Andar | SPACE Pular | SHIFT Correr</div><div>MOUSE Olhar | ESQ Quebrar | DIR Colocar</div><div>1-6 Trocar Bloco | ESC Pausar</div>
+  <div id="hotbar"></div>
+  <div id="controlsInfo">
+    <b>PC - TODAS TECLAS:</b><br>
+    WASD=Mover | MOUSE=Mirar/Clicar<br>
+    ESPAÇO=Pular | SHIFT=Correr | CTRL=Agachar<br>
+    CLICK ESQ=Quebrar | CLICK DIR=Colocar | R=Atacar<br>
+    1-9=Hotbar | E=Inventário | Q=Largar | ESC=Menu<br>
+    F=Voar | L=Travar mouse
   </div>
-</div>
-<div id="hud"><div id="hotbar"></div></div>
-<div id="menu">
-  <h1>BLOCKCRAFT</h1>
-  <p style="opacity:0.9">Minecraft Pirata Legalizado • Sem Lag • P2P • Single + Multi</p>
-  <button id="playBtn" style="font-size:22px;padding:14px 36px;margin-top:10px">JOGAR SINGLEPLAYER</button>
-  <div class="row" style="margin-top:16px"><button id="playHostBtn" style="background:#3a7bd5;border-color:#5a9bf5">JOGAR E HOSTEAR</button></div>
-  <p style="margin-top:22px;font-size:11px;max-width:440px;opacity:0.7">No PC: Clique pra travar o mouse. Hospedar = você é o servidor.</p>
+  <div id="menu" class="panel">
+    <h2>BLOCKCRAFT</h2>
+    <button id="singleBtn" style="width:100%;margin:5px 0;padding:12px">SINGLEPLAYER</button>
+    <hr style="margin:10px 0">
+    <button id="hostBtn" style="width:100%;background:#FF9800">HOSTEAR MULTIPLAYER</button>
+    <div style="margin:8px 0">Seu ID: <b id="myId">gerando...</b> <button id="copyIdBtn" style="padding:2px 8px">COPIAR</button></div>
+    <input id="friendId" placeholder="ID do amigo (só colar)">
+    <button id="joinBtn" style="width:100%">ENTRAR NO MUNDO DO AMIGO</button>
+    <p style="font-size:11px;margin-top:10px;color:#aaa">Link fácil: tinyurl.com/33e73amr</p>
+    <p id="status" style="font-size:12px;margin-top:8px;color:#0f0"></p>
+  </div>
 </div>
 <script type="module">
 import * as THREE from 'three';
-const BLOCKS=[{id:0,name:'Ar'},{id:1,name:'Grama',color:0x5fa052,top:0x7cbf6a},{id:2,name:'Terra',color:0x8B5A2B},{id:3,name:'Pedra',color:0x888888},{id:4,name:'Madeira',color:0x6d4c2a},{id:5,name:'Folha',color:0x2d6a2e},{id:6,name:'Areia',color:0xd9c98a}];
-const HOTBAR_IDS=[1,2,3,4,5,6];
-let scene,camera,renderer,world=new Map(),meshes=new Map(),peer,isHost=false,connections=[],playerId=Math.random().toString(36).slice(2,6),selectedSlot=0,keys={},yaw=0,pitch=0,velY=0,onGround=false,pos=new THREE.Vector3(8,18,8),otherPlayers=new Map();
-const CHUNK=16,WORLD_SIZE=10;
-function key(x,y,z){return `${x},${y},${z}`} function getBlock(x,y,z){return world.get(key(Math.floor(x),Math.floor(y),Math.floor(z)))||0}
-function setBlock(x,y,z,id,broadcast=true){x=Math.floor(x);y=Math.floor(y);z=Math.floor(z);const k=key(x,y,z);if(id===0)world.delete(k);else world.set(k,id);updateChunkMesh(Math.floor(x/CHUNK),Math.floor(z/CHUNK));for(let dx=-1;dx<=1;dx++)for(let dz=-1;dz<=1;dz++)if(dx||dz)updateChunkMesh(Math.floor(x/CHUNK)+dx,Math.floor(z/CHUNK)+dz);if(broadcast&&connections.length){const msg={t:'block',x,y,z,id};connections.forEach(c=>{try{c.open&&c.send(msg)}catch{}})}}
-function genWorld(){for(let cx=-WORLD_SIZE;cx<WORLD_SIZE;cx++){for(let cz=-WORLD_SIZE;cz<WORLD_SIZE;cz++){for(let x=0;x<CHUNK;x++){for(let z=0;z<CHUNK;z++){let wx=cx*CHUNK+x,wz=cz*CHUNK+z;let h=Math.floor(7+Math.sin(wx*0.06)*2.5+Math.cos(wz*0.06)*2.5);for(let y=0;y<=h;y++){let id=y===h?1:y>h-3?2:3;if(y<1)id=6;world.set(key(wx,y,wz),id);}if(Math.random()<0.006&&h>4){for(let ty=1;ty<=4;ty++)world.set(key(wx,h+ty,wz),4);for(let lx=-2;lx<=2;lx++)for(let lz=-2;lz<=2;lz++)for(let ly=0;ly<=1;ly++){if(Math.abs(lx)===2&&Math.abs(lz)===2)continue;world.set(key(wx+lx,h+5+ly,wz+lz),5);}}}}}}
-let chunkGroup;function initThree(){scene=new THREE.Scene();scene.fog=new THREE.Fog(0x87CEEB,50,180);scene.background=new THREE.Color(0x87CEEB);camera=new THREE.PerspectiveCamera(75,innerWidth/innerHeight,0.1,1000);renderer=new THREE.WebGLRenderer({antialias:false,powerPreference:'high-performance'});renderer.setSize(innerWidth,innerHeight);renderer.setPixelRatio(Math.min(devicePixelRatio,1.25));document.body.appendChild(renderer.domElement);const light=new THREE.DirectionalLight(0xffffff,1);light.position.set(1,2,0.5);scene.add(light);scene.add(new THREE.AmbientLight(0xffffff,0.65));chunkGroup=new THREE.Group();scene.add(chunkGroup);BLOCKS.forEach(b=>{if(b.id!==0)b.mat=new THREE.MeshLambertMaterial({color:b.color});});}
-function updateChunkMesh(cx,cz){const k=`${cx},${cz}`;let old=meshes.get(k);if(old){chunkGroup.remove(old);}const group=new THREE.Group();for(let x=0;x<CHUNK;x++)for(let z=0;z<CHUNK;z++)for(let y=0;y<30;y++){let wx=cx*CHUNK+x,wz=cz*CHUNK+z;let id=world.get(key(wx,y,wz));if(!id)continue;if(getBlock(wx+1,y,wz)&&getBlock(wx-1,y,wz)&&getBlock(wx,y+1,wz)&&getBlock(wx,y-1,wz)&&getBlock(wx,y,wz+1)&&getBlock(wx,y,wz-1))continue;let b=BLOCKS[id];let mesh;if(b.top&&id===1){const mats=[b.mat,b.mat,new THREE.MeshLambertMaterial({color:b.top}),b.mat,b.mat,b.mat];mesh=new THREE.Mesh(new THREE.BoxGeometry(1,1,1),mats);}else mesh=new THREE.Mesh(new THREE.BoxGeometry(1,1,1),b.mat);mesh.position.set(wx+0.5,y+0.5,wz+0.5);group.add(mesh);}if(group.children.length){chunkGroup.add(group);meshes.set(k,group);}else meshes.delete(k);}
-function rebuildAll(){chunkGroup.clear();meshes.clear();for(let cx=-WORLD_SIZE;cx<WORLD_SIZE;cx++)for(let cz=-WORLD_SIZE;cz<WORLD_SIZE;cz++)updateChunkMesh(cx,cz);}
-let last=performance.now(),frames=0;function animate(){requestAnimationFrame(animate);const now=performance.now();const dt=Math.min((now-last)/1000,0.05);last=now;frames++;if(frames%20===0){document.getElementById('stats').textContent=`FPS: ${Math.round(1/dt)} | Blocks: ${world.size} | ${isHost?'HOST':'CLIENT'} ${playerId}`;}if(!document.pointerLockElement){renderer.render(scene,camera);return;}const speed=keys['ShiftLeft']||keys['ShiftRight']?9:5;let forward=new THREE.Vector3(-Math.sin(yaw),0,-Math.cos(yaw));let right=new THREE.Vector3(Math.cos(yaw),0,-Math.sin(yaw));let move=new THREE.Vector3();if(keys['KeyW'])move.add(forward);if(keys['KeyS'])move.sub(forward);if(keys['KeyA'])move.sub(right);if(keys['KeyD'])move.add(right);if(move.length()){move.normalize().multiplyScalar(speed*dt);let nx=pos.x+move.x;if(!getBlock(nx,pos.y-0.2,pos.z)&&!getBlock(nx,pos.y-1.2,pos.z))pos.x=nx;let nz=pos.z+move.z;if(!getBlock(pos.x,pos.y-0.2,nz)&&!getBlock(pos.x,pos.y-1.2,nz))pos.z=nz;}velY-=22*dt;pos.y+=velY*dt;if(getBlock(pos.x,pos.y-1.7,pos.z)){pos.y=Math.floor(pos.y-1.7)+1+1.7;velY=0;onGround=true;}else onGround=false;if(keys['Space']&&onGround){velY=8;onGround=false;}if(pos.y<0){pos.y=20;velY=0;}camera.position.copy(pos);camera.rotation.order='YXZ';camera.rotation.y=yaw;camera.rotation.x=pitch;if(connections.length&&frames%4===0){const msg={t:'pos',id:playerId,x:pos.x,y:pos.y,z:pos.z,yaw,pitch};connections.forEach(c=>{try{c.open&&c.send(msg)}catch{}})}renderer.render(scene,camera);}
-function setupInput(){addEventListener('keydown',e=>{keys[e.code]=true;if(e.code.startsWith('Digit')){let n=parseInt(e.code.slice(5))-1;if(n>=0&&n<6){selectedSlot=n;updateHotbar();}}});addEventListener('keyup',e=>keys[e.code]=false);addEventListener('mousemove',e=>{if(document.pointerLockElement){yaw-=e.movementX*0.0022;pitch-=e.movementY*0.0022;pitch=Math.max(-1.55,Math.min(1.55,pitch));}});renderer.domElement.addEventListener('mousedown',e=>{if(!document.pointerLockElement){renderer.domElement.requestPointerLock();return;}let dir=new THREE.Vector3(0,0,-1).applyQuaternion(camera.quaternion);let p=pos.clone();let hit=null,lastAir=null;for(let i=0;i<10;i+=0.15){let check=p.clone().add(dir.clone().multiplyScalar(i));let id=getBlock(check.x,check.y,check.z);if(id){hit={x:Math.floor(check.x),y:Math.floor(check.y),z:Math.floor(check.z)};break;}lastAir={x:Math.floor(check.x),y:Math.floor(check.y),z:Math.floor(check.z)};}if(hit){if(e.button===0)setBlock(hit.x,hit.y,hit.z,0);else if(e.button===2&&lastAir)setBlock(lastAir.x,lastAir.y,lastAir.z,HOTBAR_IDS[selectedSlot]);}});addEventListener('contextmenu',e=>e.preventDefault());}
-function updateHotbar(){const hb=document.getElementById('hotbar');hb.innerHTML='';HOTBAR_IDS.forEach((id,i)=>{const d=document.createElement('div');d.className='slot'+(i===selectedSlot?' active':'');d.innerHTML=`<div style="width:22px;height:22px;background:#${BLOCKS[id].color.toString(16).padStart(6,'0')};border:1px solid #000"></div>${BLOCKS[id].name}`;d.onclick=()=>{selectedSlot=i;updateHotbar()};hb.appendChild(d);});}
-function initP2P(){const hostBtn=document.getElementById('hostBtn'),joinBtn=document.getElementById('joinBtn'),myIdEl=document.getElementById('myId'),peersEl=document.getElementById('peers'),copyBtn=document.getElementById('copyBtn');function updatePeers(){peersEl.textContent=`Players: ${1+connections.length} (você) ${isHost?'é o host':''}`;}function handleConn(conn){connections.push(conn);conn.on('data',data=>{if(data.t==='block')setBlock(data.x,data.y,data.z,data.id,false);if(data.t==='pos'){let m=otherPlayers.get(data.id);if(!m){let geo=new THREE.BoxGeometry(0.6,1.8,0.6);let mat=new THREE.MeshLambertMaterial({color:0xff3b3b});m=new THREE.Mesh(geo,mat);scene.add(m);otherPlayers.set(data.id,m);}m.position.set(data.x,data.y-0.9,data.z);if(isHost){connections.forEach(c=>{if(c!==conn)try{c.send(data)}catch{}});}}if(data.t==='world'&&!isHost){world=new Map(data.world);rebuildAll();}});conn.on('close',()=>{connections=connections.filter(c=>c!==conn);updatePeers();});if(isHost){conn.on('open',()=>{conn.send({t:'world',world:Array.from(world.entries())});});}updatePeers();}hostBtn.onclick=()=>{if(peer)return;isHost=true;peer=new Peer();myIdEl.textContent='Gerando ID...';peer.on('open',id=>{myIdEl.textContent=id;copyBtn.style.display='inline-block';});peer.on('connection',handleConn);peer.on('error',e=>{myIdEl.textContent='Erro: '+e;});};copyBtn.onclick=()=>{navigator.clipboard.writeText(myIdEl.textContent);copyBtn.textContent='COPIADO!';setTimeout(()=>copyBtn.textContent='COPY ID',1500);};joinBtn.onclick=()=>{const id=document.getElementById('joinId').value.trim();if(!id)return alert('Cola o ID do host');if(!peer){peer=new Peer();peer.on('open',()=>{doJoin(id);});}else doJoin(id);};function doJoin(id){myIdEl.textContent=`Conectando em ${id}...`;const conn=peer.connect(id);conn.on('open',()=>{myIdEl.textContent=`Conectado em ${id}`;handleConn(conn);});conn.on('error',e=>alert('Falha ao conectar: '+e));}}
-function startGame(hostToo=false){document.getElementById('menu').style.display='none';initThree();genWorld();rebuildAll();setupInput();updateHotbar();initP2P();animate();if(hostToo)setTimeout(()=>document.getElementById('hostBtn').click(),600);setTimeout(()=>{try{renderer.domElement.requestPointerLock();}catch{}},100);}
-document.getElementById('playBtn').onclick=()=>startGame(false);document.getElementById('playHostBtn').onclick=()=>startGame(true);addEventListener('resize',()=>{if(camera){camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);}});
+const scene=new THREE.Scene();scene.background=new THREE.Color(0x87CEEB);scene.fog=new THREE.Fog(0x87CEEB,50,200);
+const camera=new THREE.PerspectiveCamera(75,innerWidth/innerHeight,0.1,1000);
+const renderer=new THREE.WebGLRenderer({canvas:document.getElementById('game'),antialias:true});
+renderer.setSize(innerWidth,innerHeight);renderer.shadowMap.enabled=true;
+scene.add(new THREE.AmbientLight(0xffffff,0.6));
+const sun=new THREE.DirectionalLight(0xffffff,0.8);sun.position.set(100,200,100);sun.castShadow=true;scene.add(sun);
+const blocks=new Map();
+const blockTypes=[{name:'Grama',color:0x5da736},{name:'Terra',color:0x8B4513},{name:'Pedra',color:0x888888},{name:'Madeira',color:0x9c6b3f},{name:'Folha',color:0x228B22},{name:'Areia',color:0xD2B48C},{name:'Vidro',color:0xADD8E6,trans:true},{name:'Tijolo',color:0xB22222},{name:'Ouro',color:0xFFD700}];
+let selectedSlot=0;let health=100;let pvpOn=true;let flying=false;
+const player={x:0,y:10,z:0,vx:0,vy:0,vz:0,onGround:false};
+function keyBlock(x,y,z){return `${Math.floor(x)},${Math.floor(y)},${Math.floor(z)}`}
+function addBlock(x,y,z,typeIdx=0){
+  const k=keyBlock(x,y,z);if(blocks.has(k))return;
+  const geo=new THREE.BoxGeometry(1,1,1);
+  const mat=new THREE.MeshLambertMaterial({color:blockTypes[typeIdx].color,transparent:!!blockTypes[typeIdx].trans,opacity:blockTypes[typeIdx].trans?0.5:1});
+  const m=new THREE.Mesh(geo,mat);m.position.set(Math.floor(x)+0.5,Math.floor(y)+0.5,Math.floor(z)+0.5);m.castShadow=true;m.receiveShadow=true;m.userData={type:typeIdx};scene.add(m);blocks.set(k,m);
+}
+function removeBlock(x,y,z){const k=keyBlock(x,y,z);const m=blocks.get(k);if(m){scene.remove(m);blocks.delete(k);}}
+for(let x=-20;x<=20;x++)for(let z=-20;z<=20;z++){addBlock(x,0,z,0);if(Math.random()<0.02){for(let y=1;y<4;y++)addBlock(x,y,z,3);for(let dx=-2;dx<=2;dx++)for(let dy=-2;dy<=2;dy++)for(let dz=-2;dz<=2;dz++)if(Math.abs(dx)+Math.abs(dy)+Math.abs(dz)<4)addBlock(x+dx,5+dy,z+dz,4);}}
+const keys={};let mouseDown={left:false,right:false};let yaw=0,pitch=0;let locked=false;
+addEventListener('keydown',e=>{keys[e.code]=true;if(e.code.startsWith('Digit')){selectedSlot=parseInt(e.code[5])-1;updateHotbar();}if(e.code==='KeyF')flying=!flying;if(e.code==='KeyR')attack();});
+addEventListener('keyup',e=>keys[e.code]=false);
+addEventListener('mousemove',e=>{if(!locked)return;yaw-=e.movementX*0.002;pitch-=e.movementY*0.002;pitch=Math.max(-1.5,Math.min(1.5,pitch));});
+renderer.domElement.addEventListener('click',()=>{if(!locked)renderer.domElement.requestPointerLock();});
+document.addEventListener('pointerlockchange',()=>{locked=document.pointerLockElement===renderer.domElement;});
+renderer.domElement.addEventListener('mousedown',e=>{if(e.button===0)mouseDown.left=true;if(e.button===2)mouseDown.right=true;e.preventDefault();});
+renderer.domElement.addEventListener('mouseup',e=>{if(e.button===0)mouseDown.left=false;if(e.button===2)mouseDown.right=false;});
+renderer.domElement.addEventListener('contextmenu',e=>e.preventDefault());
+const raycaster=new THREE.Raycaster();
+function doBlockAction(){
+  raycaster.setFromCamera(new THREE.Vector2(0,0),camera);
+  const hits=raycaster.intersectObjects([...blocks.values()]);
+  if(hits.length>0&&hits[0].distance<6){
+    const hit=hits[0];
+    if(mouseDown.left){removeBlock(hit.object.position.x-0.5,hit.object.position.y-0.5,hit.object.position.z-0.5);mouseDown.left=false;}
+    if(mouseDown.right){const n=hit.face.normal;addBlock(hit.object.position.x-0.5+n.x,hit.object.position.y-0.5+n.y,hit.object.position.z-0.5+n.z,selectedSlot);mouseDown.right=false;}
+  }
+}
+function updatePlayer(dt){
+  const speed=keys['ShiftLeft']?0.15:0.08;
+  const forward=new THREE.Vector3();camera.getWorldDirection(forward);forward.y=0;forward.normalize();
+  const right=new THREE.Vector3().crossVectors(forward,new THREE.Vector3(0,1,0)).negate();
+  if(keys['KeyW']){player.x+=forward.x*speed*dt*60;player.z+=forward.z*speed*dt*60;}
+  if(keys['KeyS']){player.x-=forward.x*speed*dt*60;player.z-=forward.z*speed*dt*60;}
+  if(keys['KeyA']){player.x-=right.x*speed*dt*60;player.z-=right.z*speed*dt*60;}
+  if(keys['KeyD']){player.x+=right.x*speed*dt*60;player.z+=right.z*speed*dt*60;}
+  if(flying){if(keys['Space'])player.y+=0.15*dt*60;if(keys['ControlLeft'])player.y-=0.15*dt*60;}
+  else{player.vy-=0.02*dt*60;player.y+=player.vy*dt*60;if(blocks.has(keyBlock(player.x,player.y-0.8,player.z))){player.y=Math.floor(player.y)+1;player.vy=0;player.onGround=true;if(keys['Space']){player.vy=0.35;player.onGround=false;}}else player.onGround=false;}
+  camera.position.set(player.x,player.y+0.6,player.z);camera.rotation.order='YXZ';camera.rotation.y=yaw;camera.rotation.x=pitch;
+}
+function attack(){if(!pvpOn)return;if(conn&&conn.open){conn.send({type:'damage',amount:10});}statusEl.textContent='ATACOU!';setTimeout(()=>statusEl.textContent='',1000);}
+function takeDamage(v){health=Math.max(0,health-v);document.getElementById('healthFill').style.width=health+'%';document.getElementById('healthText').textContent=health;if(health<=0){health=100;player.x=0;player.y=20;player.z=0;alert('Morreu! Respawn');}}
+function updateHotbar(){const hb=document.getElementById('hotbar');hb.innerHTML='';blockTypes.forEach((b,i)=>{const d=document.createElement('div');d.className='slot'+(i===selectedSlot?' active':'');d.textContent=b.name;d.onclick=()=>{selectedSlot=i;updateHotbar();};hb.appendChild(d);});}
+updateHotbar();
+let peer=null,conn=null;const statusEl=document.getElementById('status');const myIdEl=document.getElementById('myId');
+function initPeer(){peer=new Peer(Math.random().toString(36).substring(2,8));peer.on('open',id=>myIdEl.textContent=id);peer.on('connection',c=>{conn=c;setupConn();statusEl.textContent='Amigo conectou!';document.getElementById('menu').style.display='none';});}
+function setupConn(){conn.on('data',data=>{if(data.type==='blockAdd')addBlock(data.x,data.y,data.z,data.t);if(data.type==='blockRem')removeBlock(data.x,data.y,data.z);if(data.type==='damage'&&pvpOn)takeDamage(data.amount);});}
+initPeer();
+document.getElementById('singleBtn').onclick=()=>{document.getElementById('menu').style.display='none';renderer.domElement.requestPointerLock();};
+document.getElementById('hostBtn').onclick=()=>{document.getElementById('menu').style.display='none';renderer.domElement.requestPointerLock();statusEl.textContent='Hosteando! ID: '+myIdEl.textContent;};
+document.getElementById('joinBtn').onclick=()=>{const fid=document.getElementById('friendId').value.trim();if(!fid)return alert('Cola o ID');conn=peer.connect(fid);conn.on('open',()=>{setupConn();statusEl.textContent='Conectado!';document.getElementById('menu').style.display='none';renderer.domElement.requestPointerLock();});};
+document.getElementById('copyIdBtn').onclick=()=>{navigator.clipboard.writeText(myIdEl.textContent);statusEl.textContent='ID copiado!';};
+document.getElementById('pvpBtn').onclick=(e)=>{pvpOn=!pvpOn;e.target.textContent='PvP: '+(pvpOn?'ON':'OFF');e.target.className=pvpOn?'red':'';};
+document.getElementById('menuBtn').onclick=()=>document.getElementById('menu').style.display='block';
+const _add=addBlock;addBlock=(x,y,z,t)=>{_add(x,y,z,t);if(conn&&conn.open)conn.send({type:'blockAdd',x,y,z,t});};
+const _rem=removeBlock;removeBlock=(x,y,z)=>{_rem(x,y,z);if(conn&&conn.open)conn.send({type:'blockRem',x,y,z});};
+let last=performance.now();function loop(now){requestAnimationFrame(loop);const dt=Math.min(0.05,(now-last)/1000);last=now;updatePlayer(dt);doBlockAction();renderer.render(scene,camera);}loop(performance.now());
+window.addEventListener('resize',()=>{camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix();renderer.setSize(innerWidth,innerHeight);});
 </script>
 </body>
 </html>
